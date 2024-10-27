@@ -6,7 +6,8 @@ import Markdown from "react-markdown";
 import { useSearchParams } from "react-router-dom";
 import ChatBubble from "./ChatBubble";
 const PRESENT = {
-  text: `Hi! You will be working on the 3-way match testing for this audit. Below are documentation
+  content: [
+    `Hi! You will be working on the 3-way match testing for this audit. Below are documentation
   guidelines for performing this task. Please take 5-7 minutes to look through the documentation
   guidelines and the material provided in the envelope in front of you and develop any initial
   questions you may have for me.
@@ -14,9 +15,9 @@ const PRESENT = {
   Please **save your questions until after you have finished reviewing** the documentation guidelines
   and materials in the envelope. **Once you have gathered all your questions and have finished
   reviewing** the materials, please send a message in the chat to let me know if you have any
-  questions.
-  
-  Please ensure that the company name, invoice date, and invoice number on your computer screen match
+  questions.`,
+
+    `Please ensure that the company name, invoice date, and invoice number on your computer screen match
   the information on the related invoice in your envelope, and also that the amount paid is the correct
   amount owed per the invoice in your envelope.
   * If you find an error in one of these four categories, please check the box below that category.
@@ -28,21 +29,22 @@ const PRESENT = {
   * Example: if you find no errors (i.e., the company name, invoice date, and invoice number
   exactly match that information on the invoice, and the amount paid is correct per the invoice),
   you would check the box below the &quot;No Error Found&quot; column.`,
+  ],
   source: "assistant",
   id: "present",
 };
 
 const ABSENT = {
-  text: `Hi! You will be working on the 3-way match testing for this audit. Below are documentation
+  content: [
+    `Hi! You will be working on the 3-way match testing for this audit. Below are documentation
   guidelines for performing this task. Please take 5-7 minutes to look through the documentation
   guidelines and the material provided in the envelope in front of you and develop any initial
   questions you may have for me.
   
   Please **ask me questions as they come up in your review** of the documentation guidelines and
   materials in the envelope. **As you review the materials and questions come up**, please send a
-  message in the chat to let me know your questions as they come up.
-  
-  Please ensure that the company name, invoice date, and invoice number on your computer screen match
+  message in the chat to let me know your questions as they come up.`,
+    `Please ensure that the company name, invoice date, and invoice number on your computer screen match
   the information on the related invoice in your envelope, and also that the amount paid is the correct
   amount owed per the invoice in your envelope.
   * If you find an error in one of these four categories, please check the box below that category.
@@ -54,6 +56,7 @@ const ABSENT = {
   * Example: if you find no errors (i.e., the company name, invoice date, and invoice number
   exactly match that information on the invoice, and the amount paid is correct per the invoice),
   you would check the box below the &quot;No Error Found&quot; column.`,
+  ],
   source: "assistant",
   id: "absent",
 };
@@ -94,9 +97,9 @@ export function Chatbox({ messages, typing }) {
       }}
     >
       {searchParams.get("mode") == "absent" ? (
-        <ChatBubble message={PRESENT} key="present" />
+        <ChatBubble message={PRESENT} image={true} key="present" />
       ) : (
-        <ChatBubble message={ABSENT} key="absent" />
+        <ChatBubble message={ABSENT} image={true} key="absent" />
       )}
       {messages.length == 0 ? (
         <></>
@@ -132,7 +135,7 @@ export default Chatbox;
 //         return;
 //       }
 //       if (
-//         new TextDecoder().decode(value).substring(5).indexOf("[DONE]") ==
+//         new Decoder().decode(value).substring(5).indexOf("[DONE]") ==
 //           -1 &&
 //         new TextDecoder().decode(value).substring(5) != ""
 //       ) {

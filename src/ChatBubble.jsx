@@ -4,8 +4,9 @@ import Typing from "./Typing";
 import React, { useState } from "react";
 import Markdown from "react-markdown";
 import { useSearchParams } from "react-router-dom";
-
-export function ChatBubble({ message }) {
+import Zoom from "react-medium-image-zoom";
+import "react-medium-image-zoom/dist/styles.css";
+export function ChatBubble({ message, image }) {
   React.useEffect(() => console.log(message), []);
   return (
     <Paper
@@ -25,7 +26,26 @@ export function ChatBubble({ message }) {
       {/* <Typography variant="caption">
                   {convertTime(message.id)}
                 </Typography> */}
-      <Markdown>{message.text}</Markdown>
+      {Array.isArray(message.content) ? (
+        <Markdown>{message.content[0]}</Markdown>
+      ) : (
+        <Markdown>{message.content}</Markdown>
+      )}
+      {image ? (
+        <Zoom>
+          <img
+            src="src/assets/gies_bot_3_way_match.png"
+            style={{ width: "100%" }}
+          />
+        </Zoom>
+      ) : (
+        <></>
+      )}
+      {Array.isArray(message.content) ? (
+        <Markdown>{message.content[1]}</Markdown>
+      ) : (
+        <></>
+      )}
     </Paper>
   );
 }
