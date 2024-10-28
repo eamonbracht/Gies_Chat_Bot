@@ -32,10 +32,7 @@ export function ChatBubble({ message, image }) {
       )}
       {image ? (
         <Zoom>
-          <img
-            src="src/assets/gies_bot_3_way_match.png"
-            style={{ width: "100%" }}
-          />
+          <img src="/gies_bot_3_way_match.png" style={{ width: "100%" }} />
         </Zoom>
       ) : (
         <></>
