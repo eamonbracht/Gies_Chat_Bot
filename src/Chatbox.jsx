@@ -3,7 +3,6 @@ import { produce } from "immer";
 import Typing from "./Typing";
 import React, { useState } from "react";
 import Markdown from "react-markdown";
-import { useSearchParams } from "react-router-dom";
 import ChatBubble from "./ChatBubble";
 const PRESENT = {
   content: [
@@ -70,9 +69,7 @@ const convertTime = (someMillisecondValue) => {
   var year = date.getFullYear();
   return `${month}/${day}/${year} ${hour}:${minute}`;
 };
-export function Chatbox({ messages, typing }) {
-  let [searchParams] = useSearchParams();
-  React.useEffect(() => console.log(searchParams.get("mode")), []);
+export function Chatbox({ messages, typing, mode }) {
   const listRef = React.useRef(null);
   React.useEffect(() => {
     let lastItem = listRef.current.lastChild;
@@ -82,7 +79,7 @@ export function Chatbox({ messages, typing }) {
       inline: "nearest",
     });
   }, [messages]);
-
+  console.log("messages ", messages);
   return (
     <Box
       ref={listRef}
@@ -96,10 +93,10 @@ export function Chatbox({ messages, typing }) {
         overflow: "overlay",
       }}
     >
-      {searchParams.get("mode") == "absent" ? (
-        <ChatBubble message={PRESENT} image={true} key="present" />
+      {mode == "absent" ? (
+        <ChatBubble message={PRESENT} image={true} key="absent" />
       ) : (
-        <ChatBubble message={ABSENT} image={true} key="absent" />
+        <ChatBubble message={ABSENT} image={true} key="present" />
       )}
       {messages.length == 0 ? (
         <></>

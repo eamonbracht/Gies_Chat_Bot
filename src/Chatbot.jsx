@@ -1,80 +1,53 @@
 import React, { useState, useCallback } from "react";
 import "./App.css";
-import { Paper, Box, Button } from "@mui/material";
+import { Paper, Box, Button, IconButton, Chip, Stack } from "@mui/material";
+import Typography from "@mui/material/Typography";
+import Modal from "@mui/material/Modal";
 import SendIcon from "@mui/icons-material/Send";
 import Chatbox from "./Chatbox";
 import { useSearchParams } from "react-router-dom";
 import { CSVLink, CSVDownload } from "react-csv";
 import StopCircleIcon from "@mui/icons-material/StopCircle";
 import InputBase from "@mui/material/InputBase";
-import IconButton from "@mui/material/IconButton";
+import SettingsIcon from "@mui/icons-material/Settings";
+import DownloadIcon from "@mui/icons-material/Download";
 import RemoveMarkdown from "remove-markdown";
-// const headers = [
-//   { label: "Label", key: "var" },
-//   { label: "Transcript", key: "content" },
-//   { label: "Sender", key: "role" },
-//   { label: "Time", key: "id" },
-// ];
-// const headers = [
-//   {
-//     label: "ParticipantID",
-//     key: "ParticipantID",
-//   },
-//   {
-//     label: "Condition",
-//     key: "Condition",
-//   },
-//   {
-//     label: "TimeStart",
-//     key: "TimeStart",
-//   },
-//   {
-//     label: "TimeQ12",
-//     key: "TimeQ12",
-//   },
-//   {
-//     label: "Q12",
-//     key: "Q12",
-//   },
-//   {
-//     label: "TimeA12",
-//     key: "TimeA12",
-//   },
-//   {
-//     label: "A12",
-//     key: "A12",
-//   },
-//   {
-//     label: "TimeQ13",
-//     key: "TimeQ13",
-//   },
-//   {
-//     label: "Q13",
-//     key: "Q13",
-//   },
-//   {
-//     label: "TimeA13",
-//     key: "TimeA13",
-//   },
-//   {
-//     label: "A13",
-//     key: "A13",
-//   },
-// ];
+const style = {
+  position: "absolute",
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: 400,
+  bgcolor: "background.paper",
+  boxShadow: 24,
+  p: 4,
+};
+
 export function Chatbot() {
   let [searchParams] = useSearchParams();
-  const [messages, setMessages] = useState(() => {
-    // getting stored value
-    const saved = localStorage.getItem("history");
-    const initialValue = JSON.parse(saved);
-    return initialValue || [];
-  });
-  const [headers, setHeaders] = useState([]);
-  const [startTime, setStartTime] = useState(() => {
-    const saved = localStorage.getItem("startTime");
 
-    return saved || Date.now();
+  const [openFinish, setOpenFinish] = React.useState(false);
+  const handleOpenFinish = () => setOpenFinish(true);
+  const handleCloseFinish = () => setOpenFinish(false);
+  const [openClear, setOpenClear] = React.useState(false);
+  const handleOpenClear = () => setOpenClear(true);
+  const handleCloseClear = () => setOpenClear(false);
+
+  const [userID, setUserID] = useState(() => {
+    searchParams.get("id") || "test";
   });
+  const [mode, setMode] = useState(() => {
+    searchParams.get("mode") || "absent";
+  });
+  const [messages, setMessages] = useState([]);
+  // const [messages, setMessages] = useState(() => {
+  //   const saved = localStorage.getItem("history");
+  //   const initialValue = JSON.parse(saved);
+  //   return initialValue || [];
+  // });
+
+  const [headers, setHeaders] = useState([]);
+  const [startTime, setStartTime] = useState(Date.now());
   const [outputMessages, setOutputMessages] = useState([]);
 
   const controller = new AbortController();
@@ -82,8 +55,8 @@ export function Chatbot() {
   const [questionCount, setQuestionCount] = React.useState(1);
   const getData = () => {
     var output = {
-      ParticipantID: searchParams.get("id"),
-      Condition: searchParams.get("mode"),
+      ParticipantID: userID,
+      Condition: mode,
       TimeStart: startTime,
     };
     var headersTemp = [
@@ -107,12 +80,46 @@ export function Chatbot() {
     setHeaders(headersTemp);
   };
   React.useEffect(() => {
-    localStorage.setItem("history", JSON.stringify(messages));
+    console.log(`${mode}_${userID}`);
+    let saved = localStorage.getItem(`${mode}_${userID}`);
+
+    if (messages.length !== 0 && saved) {
+      let savedState = JSON.parse(saved);
+      console.log(savedState);
+      savedState.messages = messages;
+      localStorage.setItem(`${mode}_${userID}`, JSON.stringify(savedState));
+      console.log("updated ", savedState);
+    }
   }, [messages]);
-  React.useEffect(
-    () => localStorage.setItem("startTime", startTime),
-    [startTime]
-  );
+  // React.useEffect(
+  //   () => localStorage.setItem("startTime", startTime),
+  //   [startTime]
+  // );
+  React.useEffect(() => {
+    const tempID = searchParams.get("id") || "test";
+    const tempMode = searchParams.get("mode") || "absent";
+    setUserID(tempID);
+    setMode(tempMode);
+    let saved = localStorage.getItem(`${tempMode}_${tempID}`);
+    console.log("savsed", saved);
+    if (saved == null) {
+      let savedState = {
+        startTime: Date.now(),
+        userID: tempID,
+        mode: tempMode,
+        messages: [],
+      };
+
+      localStorage.setItem(`${mode}_${userID}`, JSON.stringify(savedState));
+    } else {
+      const savedState = JSON.parse(saved);
+      console.log(savedState);
+      setStartTime(savedState.startTime);
+      setUserID(savedState.userID);
+      setMode(savedState.mode);
+      setMessages(savedState.messages || []);
+    }
+  }, []);
 
   const getResponse = async (message) => {
     setTyping(true);
@@ -134,12 +141,6 @@ export function Chatbot() {
             .replace(/[|&;$%@"<>()+,]/g, "")}"}`
       )
       .join(",\n");
-    // console.log(`{ \n  "messages": [{"role": "user", "content": "Please respond informally but professionally. Your are playing the role of a manager but shouldn't refer to yourself as a manager."},
-    //     ${chat_history}],
-    //    \n "temperature": 0.7,
-    //    \n "max_tokens": -1,
-    //    \n "stream": false
-    //    \n}`);
     fetch("http://localhost:1234/v1/chat/completions", {
       signal: controller.signal,
       method: "POST",
@@ -155,7 +156,6 @@ export function Chatbot() {
     })
       .then(async (res) => {
         res.json().then((resj) => {
-          // console.log(resj.choices[0].message.content);
           setTyping(false);
           setMessages((prev_state) => [
             ...prev_state,
@@ -190,13 +190,14 @@ export function Chatbot() {
         flexDirection: "row",
         width: "100vw",
         height: "100vh",
+        p: 2,
       }}
     >
       <Paper
         sx={{
+          // height: "100%",
           display: "flex",
           // width: "",
-          m: 2,
         }}
       >
         <Box
@@ -208,6 +209,10 @@ export function Chatbot() {
         >
           <Box
             sx={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
               height: "5%",
               px: 2,
             }}
@@ -219,11 +224,14 @@ export function Chatbot() {
             >
               GiesChatBot
             </h3>
+            <IconButton onClick={handleOpenClear}>
+              <SettingsIcon />
+            </IconButton>
           </Box>
-          <Chatbox messages={messages} typing={typing} />
+          <Chatbox messages={messages} typing={typing} mode={mode} />
           <Box
             sx={{
-              widht: "100%",
+              width: "100%",
               height: "10%",
               display: "flex",
               justifyContent: "center",
@@ -236,20 +244,20 @@ export function Chatbot() {
                 p: "2px 4px",
                 borderRadius: 5,
                 display: "flex",
-                opacity: 0.5,
+                opacity: 0.8,
                 alignItems: "center",
                 width: "90%",
               }}
               id="messageBoxPaper"
             >
               <IconButton sx={{ p: "10px" }} aria-label="stop">
-                <StopCircleIcon
+                {/* <StopCircleIcon
                   onClick={() => {
                     controller.abort();
                     setQuestionCount((prevState) => prevState + 1);
                     setTyping(false);
                   }}
-                />
+                /> */}
               </IconButton>
               <InputBase
                 sx={{ ml: 1, flex: 1 }}
@@ -274,62 +282,97 @@ export function Chatbot() {
       </Paper>
       <Box
         sx={{
+          // border: 1,
           width: "25%",
           display: "flex",
-          alignItems: "end",
-          justifyContent: "right",
-          flexDirection: "row",
+          alignItems: "flex-end",
+          // justifyContent: "space-between",
+          flexDirection: "column",
+          ml: 1,
+          mr: 2,
+          mt: 1,
+          // my: 2,
         }}
       >
-        <Paper
-          sx={{
-            width: "100%",
-            height: "20vh",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-
-            p: 3,
-            m: 2,
-          }}
+        <Button onClick={handleOpenFinish} variant="contained">
+          Finish
+        </Button>
+        <Modal
+          open={openFinish}
+          onClose={handleCloseFinish}
+          aria-labelledby="modal-modal-title"
+          aria-describedby="modal-modal-description"
         >
-          <Button
-            color={"error"}
-            onClick={() => {
-              localStorage.setItem("history", []);
-              setMessages([]);
-            }}
-          >
-            Clear History
-          </Button>
-          <Box
-            sx={{
-              border: 1,
-              bgcolor: "primary.main",
-              p: 1,
-              color: "primary.main",
-              borderRadius: 1,
-            }}
-          >
-            <CSVLink
-              data={outputMessages}
-              asyncOnClick={true}
-              filename={`${searchParams.get("id")}.csv`}
-              style={{
-                alignSelf: "center",
-                color: "white",
-                textAlign: "center",
+          <Box sx={style}>
+            <Typography
+              id="modal-modal-title"
+              variant="h6"
+              component="h2"
+            ></Typography>
+            <Box
+              sx={{
+                border: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "primary.main",
+                p: 1,
+                color: "primary.main",
+                borderRadius: 1,
               }}
-              onClick={getData}
-              headers={headers}
-              enclosingCharacter={`"`}
-              target="_blank"
             >
-              Done
-            </CSVLink>
+              <CSVLink
+                data={outputMessages}
+                asyncOnClick={true}
+                filename={`${userID}.csv`}
+                style={{
+                  color: "white",
+                }}
+                onClick={getData}
+                headers={headers}
+                enclosingCharacter={`"`}
+                target="_blank"
+              >
+                Download results
+              </CSVLink>
+            </Box>
           </Box>
-        </Paper>
+        </Modal>
       </Box>
+      <Modal open={openClear} onClose={handleCloseClear}>
+        <Box sx={style}>
+          <Stack spacing={2}>
+            <Box>
+              User ID: <Chip label={userID} />
+            </Box>
+            <Box>
+              Treatment: <Chip label={mode} />
+            </Box>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => {
+                localStorage.setItem(`${mode}_${userID}`, null);
+                setMessages([]);
+                handleCloseClear();
+              }}
+            >
+              Clear This Users History
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => {
+                localStorage.clear();
+                setMessages([]);
+                handleCloseClear();
+              }}
+            >
+              Clear All Users History
+            </Button>
+          </Stack>
+        </Box>
+      </Modal>
     </Box>
   );
 }

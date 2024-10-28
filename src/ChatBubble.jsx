@@ -3,11 +3,10 @@ import { produce } from "immer";
 import Typing from "./Typing";
 import React, { useState } from "react";
 import Markdown from "react-markdown";
-import { useSearchParams } from "react-router-dom";
 import Zoom from "react-medium-image-zoom";
 import "react-medium-image-zoom/dist/styles.css";
 export function ChatBubble({ message, image }) {
-  React.useEffect(() => console.log(message), []);
+  // React.useEffect(() => console.log(message), []);
   return (
     <Paper
       sx={{
