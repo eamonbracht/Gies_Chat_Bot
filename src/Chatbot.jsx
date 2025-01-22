@@ -22,7 +22,8 @@ const style = {
   boxShadow: 24,
   p: 4,
 };
-
+import { context } from "./context";
+console.log(context);
 export function Chatbot() {
   let [searchParams] = useSearchParams();
 
@@ -133,26 +134,27 @@ export function Chatbot() {
       },
     ];
     setMessages(newChat);
-    const chat_history = newChat
-      .map(
-        (m) =>
-          `{"role": "${m.role}", "content": "${RemoveMarkdown(m.content)
-            .replace(/(\r\n|\n|\r)/gm, "")
-            .replace(/[|&;$%@"<>()+,]/g, "")}"}`
-      )
-      .join(",\n");
+    // const chat_history = newChat
+    //   .map(
+    //     (m) =>
+    //       `{"role": "${m.role}", "content": "${RemoveMarkdown(m.content)
+    //         .replace(/(\r\n|\n|\r)/gm, "")
+    //         .replace(/[|&;$%@"<>()+,]/g, "")}"}`
+    //   )
+    //   .join(",\n");
     fetch("http://localhost:1234/v1/chat/completions", {
       signal: controller.signal,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
       },
-      body: `{ \n  "messages": [{"role": "user", "content": "Please respond informally but professionally. Your are playing the role of a manager but shouldn't refer to yourself as a manager."}, 
-      ${chat_history}], 
-       \n   "temperature": 0.7, 
-       \n  "max_tokens": -1,
-       \n "stream": false
-       \n}`,
+      body: JSON.stringify({
+        messages: [{ role: "system", content: context }, ...newChat],
+        temperature: 0.7,
+        max_tokens: -1,
+        stream: false,
+      }),
     })
       .then(async (res) => {
         res.json().then((resj) => {
@@ -376,3 +378,4 @@ export function Chatbot() {
     </Box>
   );
 }
+// body: `{ \n  "messages": [{"role": "user", "content": "Please respond informally but professionally. Your are playing the role of a manager but shouldn't refer to yourself as a manager."},
