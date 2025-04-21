@@ -150,7 +150,7 @@ export function Chatbot() {
         "Access-Control-Allow-Origin": "*",
       },
       body: JSON.stringify({
-        messages: [{ role: "system", content: context }, ...newChat],
+        messages: [{ role: "assistant", content: context }, ...newChat],
         temperature: 0.7,
         max_tokens: -1,
         stream: false,
@@ -163,7 +163,7 @@ export function Chatbot() {
             ...prev_state,
             {
               content: resj.choices[0].message.content,
-              role: "system",
+              role: "assistant",
               id: Date.now(),
               var: `A${questionCount}`,
             },
@@ -177,7 +177,7 @@ export function Chatbot() {
           ...prev_state,
           {
             content: "Whoops. looks like something went wrong.",
-            role: "system",
+            role: "assistant",
             id: Date.now(),
             var: `A${questionCount}`,
           },
