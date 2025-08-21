@@ -38,9 +38,7 @@ export function Chatbot() {
   const handleOpenClear = () => setOpenClear(true);
   const handleCloseClear = () => setOpenClear(false);
 
-  const [userID, setUserID] = useState(() => {
-    searchParams.get("id") || "test";
-  });
+  const [userID, setUserID] = useState("test");
   const [messages, setMessages] = useState([]);
 
   const [headers, setHeaders] = useState([]);
@@ -128,7 +126,9 @@ export function Chatbot() {
       return;
     }
     
+    // Set userID and load data
     setUserID(tempID);
+    
     let saved = localStorage.getItem(`${tempID}`);
     console.log("saved", saved);
     if (saved == null) {
@@ -138,12 +138,13 @@ export function Chatbot() {
         messages: [],
       };
 
-      localStorage.setItem(`${userID}`, JSON.stringify(savedState));
+      localStorage.setItem(`${tempID}`, JSON.stringify(savedState));
+      setStartTime(savedState.startTime);
+      setMessages([]);
     } else {
       const savedState = JSON.parse(saved);
       console.log(savedState);
       setStartTime(savedState.startTime);
-      setUserID(savedState.userID);
       setMessages(savedState.messages || []);
     }
     
