@@ -60,7 +60,7 @@ A modern, real-time streaming chatbot interface designed for 3-way match audit p
 ### 3. Configure the Model
 
 #### Set System Prompt
-1. Go to the "Chat" tab in LM Studio
+1. Go to the "Server" tab in LM Studio
 2. Click on the "System Prompt" field
 3. Copy and paste the context from `src/context.js` into the system prompt window
 4. The context contains comprehensive Q&A pairs for 3-way match audit procedures
