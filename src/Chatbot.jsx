@@ -1,17 +1,17 @@
 import React, { useState, useCallback } from "react";
 import "./App.css";
-import { Paper, Box, Button, IconButton, Chip, Stack } from "@mui/material";
-import Typography from "@mui/material/Typography";
+import { Paper, Box, Button, IconButton, Chip, Stack, CircularProgress, Typography, AppBar, Toolbar } from "@mui/material";
 import Modal from "@mui/material/Modal";
 import SendIcon from "@mui/icons-material/Send";
 import Chatbox from "./Chatbox";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { CSVLink, CSVDownload } from "react-csv";
 import StopCircleIcon from "@mui/icons-material/StopCircle";
 import InputBase from "@mui/material/InputBase";
 import SettingsIcon from "@mui/icons-material/Settings";
 import DownloadIcon from "@mui/icons-material/Download";
 import RemoveMarkdown from "remove-markdown";
+
 const style = {
   position: "absolute",
   top: "50%",
@@ -21,11 +21,15 @@ const style = {
   bgcolor: "background.paper",
   boxShadow: 24,
   p: 4,
+  borderRadius: 2,
 };
+
 import { context } from "./context";
 console.log(context);
+
 export function Chatbot() {
   let [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [openFinish, setOpenFinish] = React.useState(false);
   const handleOpenFinish = () => setOpenFinish(true);
@@ -37,15 +41,7 @@ export function Chatbot() {
   const [userID, setUserID] = useState(() => {
     searchParams.get("id") || "test";
   });
-  const [mode, setMode] = useState(() => {
-    searchParams.get("mode") || "absent";
-  });
   const [messages, setMessages] = useState([]);
-  // const [messages, setMessages] = useState(() => {
-  //   const saved = localStorage.getItem("history");
-  //   const initialValue = JSON.parse(saved);
-  //   return initialValue || [];
-  // });
 
   const [headers, setHeaders] = useState([]);
   const [startTime, setStartTime] = useState(Date.now());
@@ -54,15 +50,44 @@ export function Chatbot() {
   const controller = new AbortController();
   const [typing, setTyping] = React.useState(false);
   const [questionCount, setQuestionCount] = React.useState(1);
+  
+  // Add model loading state
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  
+  // Model warming function
+  const warmModel = async () => {
+    try {
+      const response = await fetch("http://localhost:1234/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "Hello" }],
+          temperature: 0.7,
+          max_tokens: 10, // Very short response for warming
+          stream: false,
+        }),
+      });
+      
+      if (response.ok) {
+        console.log("Model warmed successfully");
+      }
+    } catch (error) {
+      console.error("Model warming failed:", error);
+    } finally {
+      setIsModelLoading(false);
+    }
+  };
+  
   const getData = () => {
     var output = {
       ParticipantID: userID,
-      Condition: mode,
       TimeStart: startTime,
     };
     var headersTemp = [
       { label: "ParticipantID", key: "ParticipantID" },
-      { label: "Condition", key: "Condition" },
       { label: "TimeStart", key: "TimeStart" },
     ];
 
@@ -80,47 +105,51 @@ export function Chatbot() {
     setOutputMessages([output]);
     setHeaders(headersTemp);
   };
+
   React.useEffect(() => {
-    console.log(`${mode}_${userID}`);
-    let saved = localStorage.getItem(`${mode}_${userID}`);
+    console.log(`${userID}`);
+    let saved = localStorage.getItem(`${userID}`);
 
     if (messages.length !== 0 && saved) {
       let savedState = JSON.parse(saved);
       console.log(savedState);
       savedState.messages = messages;
-      localStorage.setItem(`${mode}_${userID}`, JSON.stringify(savedState));
+      localStorage.setItem(`${userID}`, JSON.stringify(savedState));
       console.log("updated ", savedState);
     }
   }, [messages]);
-  // React.useEffect(
-  //   () => localStorage.setItem("startTime", startTime),
-  //   [startTime]
-  // );
+
   React.useEffect(() => {
-    const tempID = searchParams.get("id") || "test";
-    const tempMode = searchParams.get("mode") || "absent";
+    const tempID = searchParams.get("id");
+    
+    // If no user ID in URL, redirect to default
+    if (!tempID) {
+      navigate("/?id=test", { replace: true });
+      return;
+    }
+    
     setUserID(tempID);
-    setMode(tempMode);
-    let saved = localStorage.getItem(`${tempMode}_${tempID}`);
-    console.log("savsed", saved);
+    let saved = localStorage.getItem(`${tempID}`);
+    console.log("saved", saved);
     if (saved == null) {
       let savedState = {
         startTime: Date.now(),
         userID: tempID,
-        mode: tempMode,
         messages: [],
       };
 
-      localStorage.setItem(`${mode}_${userID}`, JSON.stringify(savedState));
+      localStorage.setItem(`${userID}`, JSON.stringify(savedState));
     } else {
       const savedState = JSON.parse(saved);
       console.log(savedState);
       setStartTime(savedState.startTime);
       setUserID(savedState.userID);
-      setMode(savedState.mode);
       setMessages(savedState.messages || []);
     }
-  }, []);
+    
+    // Warm the model on page load
+    warmModel();
+  }, [searchParams, navigate]);
 
   const getResponse = async (message) => {
     setTyping(true);
@@ -134,193 +163,353 @@ export function Chatbot() {
       },
     ];
     setMessages(newChat);
-    // const chat_history = newChat
-    //   .map(
-    //     (m) =>
-    //       `{"role": "${m.role}", "content": "${RemoveMarkdown(m.content)
-    //         .replace(/(\r\n|\n|\r)/gm, "")
-    //         .replace(/[|&;$%@"<>()+,]/g, "")}"}`
-    //   )
-    //   .join(",\n");
-    fetch("http://localhost:1234/v1/chat/completions", {
-      signal: controller.signal,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-      body: JSON.stringify({
-        messages: [{ role: "assistant", content: context }, ...newChat],
-        temperature: 0.7,
-        max_tokens: -1,
-        stream: false,
-      }),
-    })
-      .then(async (res) => {
-        res.json().then((resj) => {
-          setTyping(false);
-          setMessages((prev_state) => [
-            ...prev_state,
-            {
-              content: resj.choices[0].message.content,
-              role: "assistant",
-              id: Date.now(),
-              var: `A${questionCount}`,
-            },
-          ]);
-          setQuestionCount((prevState) => prevState + 1);
-        });
-      })
-      .catch(() => {
-        setTyping(false);
-        setMessages((prev_state) => [
-          ...prev_state,
-          {
-            content: "Whoops. looks like something went wrong.",
-            role: "assistant",
-            id: Date.now(),
-            var: `A${questionCount}`,
-          },
-        ]);
-        setQuestionCount((prevState) => prevState + 1);
+    
+    // Add a placeholder message for the assistant response
+    const assistantMessageId = Date.now() + 1;
+    const assistantMessage = {
+      content: "",
+      role: "assistant",
+      id: assistantMessageId,
+      var: `A${questionCount}`,
+      isStreaming: true,
+    };
+    
+    setMessages(prev => [...prev, assistantMessage]);
+
+    try {
+      const response = await fetch("http://localhost:1234/v1/chat/completions", {
+        signal: controller.signal,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+        body: JSON.stringify({
+          messages: [/* { role: "assistant", content: context }, */ ...newChat],
+          temperature: 0.7,
+          max_tokens: -1,
+          stream: true, // Enable streaming
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            
+            if (data === '[DONE]') {
+              // Stream is complete
+              setMessages(prev => 
+                prev.map(msg => 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, isStreaming: false }
+                    : msg
+                )
+              );
+              setTyping(false);
+              setQuestionCount((prevState) => prevState + 1);
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+                const content = parsed.choices[0].delta.content;
+                
+                // Update the message content in real-time
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === assistantMessageId 
+                      ? { ...msg, content: msg.content + content }
+                      : msg
+                  )
+                );
+              }
+            } catch (e) {
+              console.error('Error parsing stream data:', e);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Streaming error:', error);
+      setTyping(false);
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === assistantMessageId 
+            ? { 
+                ...msg, 
+                content: "Whoops. looks like something went wrong.",
+                isStreaming: false 
+              }
+            : msg
+        )
+      );
+      setQuestionCount((prevState) => prevState + 1);
+    }
   };
+
   return (
     <Box
       sx={{
         display: "flex",
-        flexDirection: "row",
+        flexDirection: "column",
         width: "100vw",
         height: "100vh",
-        p: 2,
+        bgcolor: "#ffffff",
       }}
     >
       <Paper
+        elevation={0}
         sx={{
-          // height: "100%",
           display: "flex",
-          // width: "",
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          borderRadius: 0,
+          overflow: "hidden",
+          bgcolor: "white",
+          border: "1px solid #e0e0e0",
         }}
       >
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            width: "100%",
+        {/* Header */}
+        <AppBar 
+          position="static" 
+          elevation={0}
+          sx={{ 
+            bgcolor: "#ffffff",
+            borderBottom: "1px solid #f0f0f0"
           }}
         >
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              height: "5%",
-              px: 2,
-            }}
-          >
-            <h3
-              sx={{
-                align: "left",
-              }}
-            >
+          <Toolbar sx={{ justifyContent: "space-between", minHeight: "64px" }}>
+            <Typography variant="h6" sx={{ fontWeight: 500, color: "#333333" }}>
               GiesChatBot
-            </h3>
-            <IconButton onClick={handleOpenClear}>
-              <SettingsIcon />
-            </IconButton>
-          </Box>
-          <Chatbox messages={messages} typing={typing} mode={mode} />
-          <Box
-            sx={{
-              width: "100%",
-              height: "10%",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Paper
-              component="form"
-              sx={{
-                p: "2px 4px",
-                borderRadius: 5,
-                display: "flex",
-                opacity: 0.8,
-                alignItems: "center",
-                width: "90%",
-              }}
-              id="messageBoxPaper"
-            >
-              <IconButton sx={{ p: "10px" }} aria-label="stop">
-                {/* <StopCircleIcon
-                  onClick={() => {
-                    controller.abort();
-                    setQuestionCount((prevState) => prevState + 1);
-                    setTyping(false);
-                  }}
-                /> */}
-              </IconButton>
-              <InputBase
-                sx={{ ml: 1, flex: 1 }}
-                placeholder="Type message here..."
-                multiline
-                inputProps={{}}
-                disabled={typing}
-                onKeyDown={(ev) => {
-                  if (ev.key === "Enter") {
-                    getResponse(ev.target.value);
-                    ev.target.value = "";
-                    ev.preventDefault();
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleOpenFinish}
+                sx={{
+                  borderColor: "#e0e0e0",
+                  color: "#666666",
+                  textTransform: "none",
+                  "&:hover": {
+                    borderColor: "#cccccc",
+                    bgcolor: "#fafafa"
                   }
                 }}
-              />
-              {/* <IconButton color="primary" sx={{ p: "10px" }} aria-label="send">
-                <SendIcon />
-              </IconButton> */}
-            </Paper>
-          </Box>
+                startIcon={<DownloadIcon sx={{ fontSize: 18 }} />}
+              >
+                Export
+              </Button>
+              <IconButton 
+                onClick={handleOpenClear}
+                sx={{ 
+                  color: "#666666",
+                  "&:hover": { bgcolor: "#f5f5f5" }
+                }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Box>
+          </Toolbar>
+        </AppBar>
+
+        {/* Chat Area */}
+        <Box sx={{ flex: 1, overflow: "hidden" }}>
+          <Chatbox messages={messages} typing={typing} />
         </Box>
-      </Paper>
-      <Box
-        sx={{
-          // border: 1,
-          width: "25%",
-          display: "flex",
-          alignItems: "flex-end",
-          // justifyContent: "space-between",
-          flexDirection: "column",
-          ml: 1,
-          mr: 2,
-          mt: 1,
-          // my: 2,
-        }}
-      >
-        <Button onClick={handleOpenFinish} variant="contained">
-          Finish
-        </Button>
-        <Modal
-          open={openFinish}
-          onClose={handleCloseFinish}
-          aria-labelledby="modal-modal-title"
-          aria-describedby="modal-modal-description"
+
+        {/* Input Area */}
+        <Box
+          sx={{
+            p: 2,
+            borderTop: "1px solid #f0f0f0",
+            bgcolor: "white",
+          }}
         >
-          <Box sx={style}>
-            <Typography
-              id="modal-modal-title"
-              variant="h6"
-              component="h2"
-            ></Typography>
-            <Box
+          {isModelLoading ? (
+            <Paper
               sx={{
-                border: 1,
+                p: 3,
+                borderRadius: 2,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                bgcolor: "primary.main",
-                p: 1,
-                color: "primary.main",
-                borderRadius: 1,
+                bgcolor: "#fafafa",
+                border: "1px solid #f0f0f0",
+              }}
+            >
+              <CircularProgress size={20} sx={{ mr: 2, color: "#666666" }} />
+              <Typography variant="body2" color="#666666" sx={{ fontWeight: 400 }}>
+                Model loading...
+              </Typography>
+            </Paper>
+          ) : (
+            <Paper
+              component="form"
+              elevation={0}
+              sx={{
+                p: "8px 12px",
+                borderRadius: 2,
+                display: "flex",
+                alignItems: "center",
+                bgcolor: "#fafafa",
+                border: "1px solid #e0e0e0",
+                "&:hover": {
+                  border: "1px solid #cccccc",
+                },
+                "&:focus-within": {
+                  border: "1px solid #999999",
+                  bgcolor: "white",
+                },
+                transition: "all 0.2s ease-in-out",
+              }}
+            >
+              <IconButton 
+                sx={{ 
+                  p: "6px", 
+                  color: "#999999",
+                  "&:hover": { color: "#666666" },
+                  "&:disabled": { color: "#e0e0e0" }
+                }}
+                aria-label="stop"
+                onClick={() => {
+                  controller.abort();
+                  setMessages(prev => 
+                    prev.map(msg => 
+                      msg.isStreaming 
+                        ? { ...msg, isStreaming: false }
+                        : msg
+                    )
+                  );
+                  setTyping(false);
+                }}
+                disabled={!messages.some(msg => msg.isStreaming)}
+              >
+                <StopCircleIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+              <InputBase
+                sx={{ 
+                  ml: 1, 
+                  flex: 1,
+                  fontSize: "15px",
+                  color: "#333333",
+                  "& .MuiInputBase-input": {
+                    padding: "8px 0",
+                  },
+                  "& .MuiInputBase-input::placeholder": {
+                    color: "#999999",
+                    opacity: 1,
+                  }
+                }}
+                placeholder="Type your message..."
+                multiline
+                maxRows={4}
+                inputProps={{}}
+                disabled={isModelLoading}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter" && !isModelLoading && !ev.shiftKey) {
+                    ev.preventDefault();
+                    if (ev.target.value.trim()) {
+                      getResponse(ev.target.value);
+                      ev.target.value = "";
+                    }
+                  }
+                }}
+              />
+              <IconButton 
+                sx={{ 
+                  p: "6px",
+                  color: "#666666",
+                  "&:hover": { 
+                    bgcolor: "#f0f0f0",
+                    color: "#333333"
+                  },
+                  "&:disabled": {
+                    color: "#e0e0e0"
+                  }
+                }} 
+                aria-label="send"
+                disabled={isModelLoading}
+                onClick={(ev) => {
+                  const input = ev.target.closest('form').querySelector('input, textarea');
+                  if (input && input.value.trim()) {
+                    getResponse(input.value);
+                    input.value = "";
+                  }
+                }}
+              >
+                <SendIcon sx={{ fontSize: 20 }} />
+              </IconButton>
+            </Paper>
+          )}
+        </Box>
+      </Paper>
+
+      <Modal
+        open={openFinish}
+        onClose={handleCloseFinish}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+      >
+        <Box sx={style}>
+          <Typography
+            id="modal-modal-title"
+            variant="h6"
+            component="h2"
+            sx={{ mb: 3, fontWeight: 500, color: "#333333" }}
+          >
+            Export Results
+          </Typography>
+          <Stack spacing={2}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" color="#666666">User ID:</Typography>
+              <Chip 
+                label={userID} 
+                size="small"
+                sx={{ 
+                  bgcolor: "#f5f5f5", 
+                  color: "#666666",
+                  fontWeight: 400
+                }} 
+              />
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                bgcolor: "#f8f9fa",
+                p: 2,
+                color: "#666666",
+                borderRadius: 2,
+                border: "1px solid #e0e0e0",
+                "&:hover": { 
+                  bgcolor: "#f0f0f0",
+                  border: "1px solid #cccccc"
+                },
+                transition: "all 0.2s",
+                cursor: "pointer",
               }}
             >
               <CSVLink
@@ -328,49 +517,66 @@ export function Chatbot() {
                 asyncOnClick={true}
                 filename={`${userID}.csv`}
                 style={{
-                  color: "white",
+                  color: "inherit",
+                  textDecoration: "none",
+                  fontWeight: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
                 onClick={getData}
                 headers={headers}
                 enclosingCharacter={`"`}
                 target="_blank"
               >
-                Download results
+                <DownloadIcon sx={{ fontSize: 20 }} />
+                Download Results
               </CSVLink>
             </Box>
-          </Box>
-        </Modal>
-      </Box>
+          </Stack>
+        </Box>
+      </Modal>
+
       <Modal open={openClear} onClose={handleCloseClear}>
         <Box sx={style}>
-          <Stack spacing={2}>
-            <Box>
-              User ID: <Chip label={userID} />
+          <Typography variant="h6" component="h2" sx={{ mb: 3, fontWeight: 500, color: "#333333" }}>
+            Settings
+          </Typography>
+          <Stack spacing={3}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="body2" color="#666666">User ID:</Typography>
+              <Chip 
+                label={userID} 
+                size="small"
+                sx={{ 
+                  bgcolor: "#f5f5f5", 
+                  color: "#666666",
+                  fontWeight: 400
+                }} 
+              />
             </Box>
-            <Box>
-              Treatment: <Chip label={mode} />
-            </Box>
+            
             <Button
-              variant="contained"
-              color="error"
-              onClick={() => {
-                localStorage.setItem(`${mode}_${userID}`, null);
-                setMessages([]);
-                handleCloseClear();
-              }}
-            >
-              Clear This Users History
-            </Button>
-            <Button
-              variant="contained"
+              variant="outlined"
               color="error"
               onClick={() => {
                 localStorage.clear();
                 setMessages([]);
                 handleCloseClear();
               }}
+              sx={{
+                borderRadius: 2,
+                py: 1,
+                fontWeight: 400,
+                borderColor: "#ffcdd2",
+                color: "#d32f2f",
+                "&:hover": {
+                  borderColor: "#ef5350",
+                  bgcolor: "#ffebee"
+                }
+              }}
             >
-              Clear All Users History
+              Clear History
             </Button>
           </Stack>
         </Box>
@@ -378,4 +584,4 @@ export function Chatbot() {
     </Box>
   );
 }
-// body: `{ \n  "messages": [{"role": "user", "content": "Please respond informally but professionally. Your are playing the role of a manager but shouldn't refer to yourself as a manager."},
+
