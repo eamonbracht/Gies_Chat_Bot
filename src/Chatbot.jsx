@@ -302,7 +302,7 @@ export function Chatbot() {
         >
           <Toolbar sx={{ justifyContent: "space-between", minHeight: "64px" }}>
             <Typography variant="h6" sx={{ fontWeight: 500, color: "#333333" }}>
-              GiesChatBot
+              ChatBot
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
               <Button
